@@ -3,281 +3,401 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>客製化旅遊記帳神器</title>
+    <title>我的旅遊記帳本 Pro</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f8f9fa; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f2f4f8; margin: 0; padding: 0; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; min-height: 100vh; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
         
-        /* 區塊標題 */
-        .section-title { font-size: 18px; color: #007bff; border-left: 5px solid #007bff; padding-left: 10px; margin: 25px 0 15px 0; font-weight: bold; }
+        /* 導覽列 */
+        .navbar { background: #007bff; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .navbar h1 { margin: 0; font-size: 18px; }
+        .nav-btn { background: none; border: 1px solid white; color: white; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        
+        /* 頁面切換控制 */
+        .page { display: none; padding: 20px; animation: fadeIn 0.3s; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 輸入表單排版 */
-        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #555; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 5px; box-sizing: border-box; }
-        
-        /* 按鈕樣式 */
-        .btn-add { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; height: 42px; width: 100%; font-weight: bold; }
-        .btn-add:hover { background-color: #218838; }
-        .btn-del { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-        
-        /* 表格樣式 */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
-        th { background-color: #e9ecef; color: #495057; font-size: 14px; }
-        td { font-size: 15px; }
-        .amount-col { text-align: right; font-family: 'Courier New', monospace; font-weight: bold; }
-        
-        /* 統計區塊 */
-        .summary-box { background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 30px; display: flex; justify-content: space-around; flex-wrap: wrap; }
-        .summary-item { text-align: center; margin: 10px; }
-        .summary-val { font-size: 24px; font-weight: bold; color: #856404; display: block; margin-top: 5px; }
+        /* 首頁：旅程卡片 */
+        .trip-card { background: white; border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; position: relative; }
+        .trip-card:hover { transform: translateY(-2px); border-color: #007bff; }
+        .trip-title { font-weight: bold; font-size: 18px; margin-bottom: 5px; color: #2c3e50; }
+        .trip-info { font-size: 14px; color: #666; display: flex; justify-content: space-between; }
+        .btn-delete-trip { position: absolute; top: 15px; right: 15px; background: #ffebee; color: #c62828; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
 
-        /* 分類統計表 */
-        .category-table { margin-top: 20px; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; }
-        .category-table th { background-color: #17a2b8; color: white; }
+        /* 內頁：輸入與列表 */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
+        .input-group input, .input-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        .btn-primary { width: 100%; padding: 14px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-success { background: #28a745; margin-top: 10px; }
+        .btn-outline { background: white; border: 2px solid #007bff; color: #007bff; margin-top: 10px; }
+
+        /* 收據圖片預覽 */
+        .receipt-preview { width: 100%; max-height: 200px; object-fit: contain; margin-top: 10px; border: 1px dashed #ccc; display: none; }
+
+        /* 明細列表 */
+        .expense-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .expense-info h4 { margin: 0 0 4px 0; font-size: 16px; }
+        .expense-info span { font-size: 12px; color: #888; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; }
+        .expense-cost { text-align: right; }
+        .expense-cost .twd { font-weight: bold; color: #d32f2f; font-size: 16px; }
+        .expense-cost .foreign { font-size: 12px; color: #666; }
+        .btn-del-item { background: none; border: none; color: #ccc; font-size: 18px; margin-left: 10px; cursor: pointer; }
+
+        /* 浮動按鈕 (新增旅程) */
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,123,255,0.4); cursor: pointer; border: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>✈️ 客製化旅遊記帳神器</h2>
+    
+    <div id="page-home" class="page active">
+        <div class="navbar">
+            <h1>📂 我的旅遊紀錄</h1>
+            <button class="nav-btn" onclick="exportAllData()">備份資料</button>
+        </div>
+        
+        <div id="trip-list" style="padding-bottom: 80px;">
+            <div style="text-align:center; color:#999; margin-top:50px;">
+                點擊右下角 ＋ 新增一段旅程
+            </div>
+        </div>
 
-    <div class="section-title">1. 行程設定</div>
-    <div class="input-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="form-group">
-            <label>出發日期</label>
-            <input type="date" id="startDate" onchange="calculateSummary()">
-        </div>
-        <div class="form-group">
-            <label>回程日期</label>
-            <input type="date" id="endDate" onchange="calculateSummary()">
-        </div>
+        <button class="fab" onclick="showCreateModal()">＋</button>
     </div>
 
-    <div class="section-title">2. 新增一筆消費</div>
-    <div class="input-grid">
-        <div class="form-group">
-            <label>日期</label>
-            <input type="date" id="itemDate">
+    <div id="page-create" class="page" style="background: white; z-index: 200; position: fixed; top:0; left:0; right:0; bottom:0;">
+        <div class="navbar" style="background:white; color:#333; border-bottom:1px solid #eee;">
+            <h1>新增旅程</h1>
+            <button class="nav-btn" style="color:#333; border:none;" onclick="goHome()">取消</button>
         </div>
-        <div class="form-group">
-            <label>類別 (可自訂)</label>
-            <input type="text" id="itemCategory" list="categoryOptions" placeholder="選擇或輸入">
-            <datalist id="categoryOptions">
-                <option value="機票交通">
-                <option value="住宿">
-                <option value="餐飲">
-                <option value="購物">
-                <option value="門票體驗">
-            </datalist>
+        <div class="input-group">
+            <label>旅程名稱</label>
+            <input type="text" id="newTripName" placeholder="例如：2025 東京賞櫻">
         </div>
-        <div class="form-group">
-            <label>項目說明</label>
-            <input type="text" id="itemName" placeholder="如: 迪士尼門票">
-        </div>
-        <div class="form-group">
-            <label>幣別</label>
-            <select id="itemCurrency" onchange="updateRate()">
-                <option value="TWD">台幣 (TWD)</option>
-                <option value="JPY">日圓 (JPY)</option>
-                <option value="USD">美金 (USD)</option>
-                <option value="KRW">韓元 (KRW)</option>
-                <option value="EUR">歐元 (EUR)</option>
+        <div class="input-group">
+            <label>預設幣別</label>
+            <select id="newTripCurrency">
+                <option value="JPY">🇯🇵 日圓 (JPY)</option>
+                <option value="USD">🇺🇸 美金 (USD)</option>
+                <option value="KRW">🇰🇷 韓元 (KRW)</option>
+                <option value="EUR">🇪🇺 歐元 (EUR)</option>
+                <option value="TWD">🇹🇼 台幣 (TWD)</option>
             </select>
         </div>
-        <div class="form-group">
-            <label>金額</label>
-            <input type="number" id="itemAmount" placeholder="0">
-        </div>
-        <div class="form-group">
-            <label>匯率 (可自訂)</label>
-            <input type="number" id="itemRate" value="1" step="0.0001">
-        </div>
-        <div class="form-group">
-            <button class="btn-add" onclick="addItem()">＋ 加入清單</button>
-        </div>
+        <button class="btn-primary" onclick="createTrip()">建立旅程</button>
     </div>
 
-    <div class="section-title">3. 消費明細表</div>
-    <table>
-        <thead>
-            <tr>
-                <th>日期</th>
-                <th>類別</th>
-                <th>項目</th>
-                <th>原幣金額</th>
-                <th>匯率</th>
-                <th class="amount-col">台幣總額</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody id="expenseListBody">
-            </tbody>
-    </table>
+    <div id="page-detail" class="page">
+        <div class="navbar">
+            <button class="nav-btn" onclick="goHome()">⬅ 返回</button>
+            <h1 id="detailTitle">東京行</h1>
+            <button class="nav-btn" onclick="exportToExcel()">匯出 Excel</button>
+        </div>
 
-    <div class="section-title">4. 預算統計看板</div>
-    <div class="summary-box">
-        <div class="summary-item">旅遊天數<span class="summary-val" id="totalDays">0 天</span></div>
-        <div class="summary-item">總支出 (TWD)<span class="summary-val" id="grandTotal">0</span></div>
-        <div class="summary-item">每日平均<span class="summary-val" id="dailyAvg">0</span></div>
+        <div style="background: #fff; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+            <div class="input-group">
+                <label>消費項目</label>
+                <input type="text" id="itemName" placeholder="例如：一蘭拉麵">
+            </div>
+            <div class="input-group" style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label>金額 (外幣)</label>
+                    <input type="number" id="itemAmount" placeholder="1000">
+                </div>
+                <div style="flex:1;">
+                    <label>當下匯率</label>
+                    <input type="number" id="itemRate" step="0.0001">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>日期</label>
+                <input type="date" id="itemDate">
+            </div>
+            <div class="input-group">
+                <label>收據照片 (選填，僅存於本地)</label>
+                <input type="file" id="itemPhoto" accept="image/*" onchange="previewPhoto(this)">
+                <img id="photoPreview" class="receipt-preview">
+            </div>
+            <button class="btn-primary" onclick="addExpense()">新增一筆</button>
+        </div>
+
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span style="color:#007bff; font-weight:bold;">總支出 (TWD)</span>
+            <span style="font-size:24px; font-weight:bold; color:#007bff;" id="totalTwdDisplay">0</span>
+        </div>
+
+        <div id="expense-list">
+            </div>
     </div>
-
-    <table class="category-table">
-        <thead>
-            <tr>
-                <th>支出類別</th>
-                <th class="amount-col">小計 (TWD)</th>
-                <th class="amount-col">佔比</th>
-            </tr>
-        </thead>
-        <tbody id="categorySummaryBody">
-            </tbody>
-    </table>
 
 </div>
 
 <script>
-    // 定義一個全域陣列來儲存所有的消費資料
-    let expenses = [];
-    const API_URL = "https://open.er-api.com/v6/latest/";
+    // --- 資料管理核心 (LocalStorage) ---
+    let trips = JSON.parse(localStorage.getItem('myTrips')) || [];
+    let currentTripId = null;
+    let currentPhotoData = null; // 暫存圖片 Base64
 
-    // 初始化：設定日期欄位預設為今天
-    document.getElementById('itemDate').valueAsDate = new Date();
+    // 1. 初始化與頁面路由
+    window.onload = function() {
+        renderTripList();
+    };
 
-    // 功能 1: 自動抓取匯率 (針對單筆新增時)
-    async function updateRate() {
-        const currency = document.getElementById('itemCurrency').value;
-        const rateInput = document.getElementById('itemRate');
-
-        if (currency === 'TWD') {
-            rateInput.value = 1;
-            return;
-        }
-
-        // 簡單的視覺回饋
-        rateInput.placeholder = "讀取中...";
-        
-        try {
-            const response = await fetch(API_URL + currency);
-            const data = await response.json();
-            rateInput.value = data.rates.TWD.toFixed(4);
-        } catch (e) {
-            alert("匯率抓取失敗，請手動輸入");
-        }
+    function goHome() {
+        switchPage('page-home');
+        renderTripList();
     }
 
-    // 功能 2: 新增一筆消費
-    function addItem() {
-        // 取得輸入值
-        const date = document.getElementById('itemDate').value;
-        const category = document.getElementById('itemCategory').value || "未分類";
-        const name = document.getElementById('itemName').value || "雜項";
-        const currency = document.getElementById('itemCurrency').value;
-        const amount = Number(document.getElementById('itemAmount').value);
-        const rate = Number(document.getElementById('itemRate').value);
+    function showCreateModal() {
+        document.getElementById('newTripName').value = "";
+        switchPage('page-create');
+    }
 
-        if (!date || amount <= 0 || rate <= 0) {
-            alert("請檢查日期、金額與匯率是否正確");
-            return;
-        }
+    function switchPage(pageId) {
+        document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
 
-        // 建立物件並推入陣列
-        const item = {
-            id: Date.now(), // 用時間戳記當作唯一 ID
-            date,
-            category,
-            name,
-            currency,
-            amount,
-            rate,
-            totalTWD: amount * rate
+    // 2. 旅程管理功能
+    function createTrip() {
+        const name = document.getElementById('newTripName').value;
+        const currency = document.getElementById('newTripCurrency').value;
+        if (!name) return alert("請輸入旅程名稱");
+
+        const newTrip = {
+            id: Date.now(),
+            name: name,
+            defaultCurrency: currency,
+            createDate: new Date().toLocaleDateString(),
+            expenses: [] // 記帳資料存在這裡
         };
 
-        expenses.push(item);
+        trips.push(newTrip);
+        saveData();
+        goHome();
+    }
+
+    function deleteTrip(event, id) {
+        event.stopPropagation(); // 防止觸發點擊卡片
+        if (confirm("確定要刪除這整趟旅程紀錄嗎？無法復原喔！")) {
+            trips = trips.filter(t => t.id !== id);
+            saveData();
+            renderTripList();
+        }
+    }
+
+    function renderTripList() {
+        const container = document.getElementById('trip-list');
+        container.innerHTML = "";
         
-        // 清空輸入欄位方便下一筆輸入
+        trips.forEach(trip => {
+            // 計算該旅程總花費
+            const total = trip.expenses.reduce((sum, item) => sum + (item.amount * item.rate), 0);
+            
+            const card = document.createElement('div');
+            card.className = 'trip-card';
+            card.onclick = () => openTrip(trip.id);
+            card.innerHTML = `
+                <div class="trip-title">${trip.name}</div>
+                <div class="trip-info">
+                    <span>${trip.createDate}</span>
+                    <span style="color:#d32f2f; font-weight:bold;">NT$ ${Math.round(total).toLocaleString()}</span>
+                </div>
+                <button class="btn-delete-trip" onclick="deleteTrip(event, ${trip.id})">刪除</button>
+            `;
+            container.appendChild(card);
+        });
+        
+        if (trips.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color:#999; margin-top:50px;">還沒有旅程，點擊右下角 + 開始記帳吧！</div>`;
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem('myTrips', JSON.stringify(trips));
+    }
+
+    // 3. 記帳內頁功能
+    function openTrip(id) {
+        currentTripId = id;
+        const trip = trips.find(t => t.id === id);
+        
+        document.getElementById('detailTitle').innerText = trip.name;
+        document.getElementById('itemDate').valueAsDate = new Date();
+        document.getElementById('itemRate').value = (trip.defaultCurrency === 'TWD') ? 1 : "";
+        document.getElementById('itemRate').placeholder = `輸入 ${trip.defaultCurrency} 匯率`;
+        
+        // 清空輸入
         document.getElementById('itemName').value = "";
         document.getElementById('itemAmount').value = "";
-        
-        // 重新渲染畫面
-        renderTable();
-        calculateSummary();
+        document.getElementById('itemPhoto').value = "";
+        document.getElementById('photoPreview').style.display = 'none';
+        currentPhotoData = null;
+
+        renderExpenses();
+        switchPage('page-detail');
     }
 
-    // 功能 3: 刪除項目
-    function deleteItem(id) {
-        expenses = expenses.filter(item => item.id !== id);
-        renderTable();
-        calculateSummary();
-    }
-
-    // 功能 4: 渲染明細表格
-    function renderTable() {
-        const tbody = document.getElementById('expenseListBody');
-        tbody.innerHTML = ""; // 清空表格
-
-        // 依照日期排序
-        expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        expenses.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.date}</td>
-                <td><span style="background:#e2e6ea; padding:2px 6px; border-radius:4px; font-size:12px;">${item.category}</span></td>
-                <td>${item.name}</td>
-                <td>${item.amount.toLocaleString()} ${item.currency}</td>
-                <td>${item.rate}</td>
-                <td class="amount-col" style="color:#d9534f;">${Math.round(item.totalTWD).toLocaleString()}</td>
-                <td><button class="btn-del" onclick="deleteItem(${item.id})">刪除</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    // 功能 5: 計算並渲染統計看板
-    function calculateSummary() {
-        // 5-1. 計算總金額
-        const total = expenses.reduce((sum, item) => sum + item.totalTWD, 0);
-        document.getElementById('grandTotal').innerText = Math.round(total).toLocaleString();
-
-        // 5-2. 計算天數與平均
-        const start = new Date(document.getElementById('startDate').value);
-        const end = new Date(document.getElementById('endDate').value);
-        
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
-            const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-            document.getElementById('totalDays').innerText = days + " 天";
-            document.getElementById('dailyAvg').innerText = Math.round(total / days).toLocaleString();
-        } else {
-            document.getElementById('totalDays').innerText = "-";
-            document.getElementById('dailyAvg').innerText = "-";
+    // 處理圖片轉換為 Base64 (這樣才能存到 localStorage)
+    function previewPhoto(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('photoPreview').src = e.target.result;
+                document.getElementById('photoPreview').style.display = 'block';
+                
+                // 壓縮圖片以免 LocalStorage 爆滿 (簡單縮放)
+                resizeImage(e.target.result, function(resizedBase64){
+                    currentPhotoData = resizedBase64;
+                });
+            }
+            reader.readAsDataURL(input.files[0]);
         }
+    }
+    
+    // 簡單的圖片壓縮函式 (Canvas)
+    function resizeImage(base64Str, callback) {
+        let img = new Image();
+        img.src = base64Str;
+        img.onload = function () {
+            let canvas = document.createElement('canvas');
+            let MAX_WIDTH = 400; // 限制寬度
+            let scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+            let ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            callback(canvas.toDataURL('image/jpeg', 0.7)); // 輸出壓縮後的 JPG
+        }
+    }
 
-        // 5-3. 分類統計 (Group By Category)
-        const categoryMap = {};
-        expenses.forEach(item => {
-            if (!categoryMap[item.category]) categoryMap[item.category] = 0;
-            categoryMap[item.category] += item.totalTWD;
+    function addExpense() {
+        const trip = trips.find(t => t.id === currentTripId);
+        const name = document.getElementById('itemName').value || "未命名項目";
+        const amount = Number(document.getElementById('itemAmount').value);
+        const rate = Number(document.getElementById('itemRate').value);
+        const date = document.getElementById('itemDate').value;
+
+        if (amount <= 0 || rate <= 0) return alert("請輸入正確金額與匯率");
+
+        trip.expenses.push({
+            id: Date.now(),
+            date,
+            name,
+            amount,
+            rate,
+            currency: trip.defaultCurrency,
+            photo: currentPhotoData // 儲存圖片資料串
         });
 
-        const catBody = document.getElementById('categorySummaryBody');
-        catBody.innerHTML = "";
+        saveData();
         
-        // 將物件轉為陣列並排序
-        Object.keys(categoryMap).forEach(cat => {
-            const subTotal = categoryMap[cat];
-            const percent = total > 0 ? (subTotal / total * 100).toFixed(1) : 0;
+        // 重置欄位
+        document.getElementById('itemName').value = "";
+        document.getElementById('itemAmount').value = "";
+        document.getElementById('itemPhoto').value = "";
+        document.getElementById('photoPreview').style.display = 'none';
+        currentPhotoData = null;
+
+        renderExpenses();
+    }
+
+    function deleteExpense(expenseId) {
+        const trip = trips.find(t => t.id === currentTripId);
+        trip.expenses = trip.expenses.filter(e => e.id !== expenseId);
+        saveData();
+        renderExpenses();
+    }
+
+    function renderExpenses() {
+        const trip = trips.find(t => t.id === currentTripId);
+        const list = document.getElementById('expense-list');
+        list.innerHTML = "";
+        
+        let totalTWD = 0;
+
+        // 按日期排序 (新到舊)
+        trip.expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        trip.expenses.forEach(item => {
+            const twd = Math.round(item.amount * item.rate);
+            totalTWD += twd;
+
+            const div = document.createElement('div');
+            div.className = 'expense-item';
             
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${cat}</td>
-                <td class="amount-col">${Math.round(subTotal).toLocaleString()}</td>
-                <td class="amount-col">${percent}%</td>
+            // 判斷有無照片
+            const photoIcon = item.photo ? '📷' : '';
+            
+            div.innerHTML = `
+                <div class="expense-info">
+                    <h4>${item.name} ${photoIcon}</h4>
+                    <span>${item.date}</span>
+                    <span>匯率: ${item.rate}</span>
+                </div>
+                <div style="display:flex; align-items:center;">
+                    <div class="expense-cost">
+                        <div class="twd">NT$ ${twd.toLocaleString()}</div>
+                        <div class="foreign">${item.amount.toLocaleString()} ${item.currency}</div>
+                    </div>
+                    <button class="btn-del-item" onclick="deleteExpense(${item.id})">×</button>
+                </div>
             `;
-            catBody.appendChild(tr);
+            // 若有圖片，點擊可檢視 (簡單實作：開新視窗)
+            if(item.photo) {
+                div.onclick = (e) => {
+                    if(e.target.tagName !== 'BUTTON') {
+                        const win = window.open("");
+                        win.document.write(`<img src="${item.photo}" style="width:100%">`);
+                    }
+                }
+            }
+
+            list.appendChild(div);
         });
+
+        document.getElementById('totalTwdDisplay').innerText = totalTWD.toLocaleString();
+    }
+
+    // 4. Excel 匯出功能 (使用 SheetJS)
+    function exportToExcel() {
+        const trip = trips.find(t => t.id === currentTripId);
+        if (trip.expenses.length === 0) return alert("沒有資料可以匯出喔");
+
+        // 整理資料格式
+        const data = trip.expenses.map(item => ({
+            "日期": item.date,
+            "項目": item.name,
+            "外幣金額": item.amount,
+            "幣別": item.currency,
+            "匯率": item.rate,
+            "台幣金額": Math.round(item.amount * item.rate),
+            "有附照片": item.photo ? "是" : "否"
+        }));
+
+        // 建立工作表
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "支出明細");
+
+        // 下載檔案
+        XLSX.writeFile(wb, `${trip.name}_支出表.xlsx`);
+    }
+    
+    function exportAllData() {
+        // 匯出全部資料為 JSON 備份
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trips));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "my_travel_backup.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
     }
 </script>
 
