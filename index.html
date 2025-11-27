@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客製化旅遊記帳神器</title>
+    <style>
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f8f9fa; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        
+        /* 區塊標題 */
+        .section-title { font-size: 18px; color: #007bff; border-left: 5px solid #007bff; padding-left: 10px; margin: 25px 0 15px 0; font-weight: bold; }
+
+        /* 輸入表單排版 */
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 5px; box-sizing: border-box; }
+        
+        /* 按鈕樣式 */
+        .btn-add { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; height: 42px; width: 100%; font-weight: bold; }
+        .btn-add:hover { background-color: #218838; }
+        .btn-del { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+        
+        /* 表格樣式 */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #e9ecef; color: #495057; font-size: 14px; }
+        td { font-size: 15px; }
+        .amount-col { text-align: right; font-family: 'Courier New', monospace; font-weight: bold; }
+        
+        /* 統計區塊 */
+        .summary-box { background-color: #fff3cd; padding: 20px; border-radius: 8px; margin-top: 30px; display: flex; justify-content: space-around; flex-wrap: wrap; }
+        .summary-item { text-align: center; margin: 10px; }
+        .summary-val { font-size: 24px; font-weight: bold; color: #856404; display: block; margin-top: 5px; }
+
+        /* 分類統計表 */
+        .category-table { margin-top: 20px; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .category-table th { background-color: #17a2b8; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>✈️ 客製化旅遊記帳神器</h2>
+
+    <div class="section-title">1. 行程設定</div>
+    <div class="input-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="form-group">
+            <label>出發日期</label>
+            <input type="date" id="startDate" onchange="calculateSummary()">
+        </div>
+        <div class="form-group">
+            <label>回程日期</label>
+            <input type="date" id="endDate" onchange="calculateSummary()">
+        </div>
+    </div>
+
+    <div class="section-title">2. 新增一筆消費</div>
+    <div class="input-grid">
+        <div class="form-group">
+            <label>日期</label>
+            <input type="date" id="itemDate">
+        </div>
+        <div class="form-group">
+            <label>類別 (可自訂)</label>
+            <input type="text" id="itemCategory" list="categoryOptions" placeholder="選擇或輸入">
+            <datalist id="categoryOptions">
+                <option value="機票交通">
+                <option value="住宿">
+                <option value="餐飲">
+                <option value="購物">
+                <option value="門票體驗">
+            </datalist>
+        </div>
+        <div class="form-group">
+            <label>項目說明</label>
+            <input type="text" id="itemName" placeholder="如: 迪士尼門票">
+        </div>
+        <div class="form-group">
+            <label>幣別</label>
+            <select id="itemCurrency" onchange="updateRate()">
+                <option value="TWD">台幣 (TWD)</option>
+                <option value="JPY">日圓 (JPY)</option>
+                <option value="USD">美金 (USD)</option>
+                <option value="KRW">韓元 (KRW)</option>
+                <option value="EUR">歐元 (EUR)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>金額</label>
+            <input type="number" id="itemAmount" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>匯率 (可自訂)</label>
+            <input type="number" id="itemRate" value="1" step="0.0001">
+        </div>
+        <div class="form-group">
+            <button class="btn-add" onclick="addItem()">＋ 加入清單</button>
+        </div>
+    </div>
+
+    <div class="section-title">3. 消費明細表</div>
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>類別</th>
+                <th>項目</th>
+                <th>原幣金額</th>
+                <th>匯率</th>
+                <th class="amount-col">台幣總額</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="expenseListBody">
+            </tbody>
+    </table>
+
+    <div class="section-title">4. 預算統計看板</div>
+    <div class="summary-box">
+        <div class="summary-item">旅遊天數<span class="summary-val" id="totalDays">0 天</span></div>
+        <div class="summary-item">總支出 (TWD)<span class="summary-val" id="grandTotal">0</span></div>
+        <div class="summary-item">每日平均<span class="summary-val" id="dailyAvg">0</span></div>
+    </div>
+
+    <table class="category-table">
+        <thead>
+            <tr>
+                <th>支出類別</th>
+                <th class="amount-col">小計 (TWD)</th>
+                <th class="amount-col">佔比</th>
+            </tr>
+        </thead>
+        <tbody id="categorySummaryBody">
+            </tbody>
+    </table>
+
+</div>
+
+<script>
+    // 定義一個全域陣列來儲存所有的消費資料
+    let expenses = [];
+    const API_URL = "https://open.er-api.com/v6/latest/";
+
+    // 初始化：設定日期欄位預設為今天
+    document.getElementById('itemDate').valueAsDate = new Date();
+
+    // 功能 1: 自動抓取匯率 (針對單筆新增時)
+    async function updateRate() {
+        const currency = document.getElementById('itemCurrency').value;
+        const rateInput = document.getElementById('itemRate');
+
+        if (currency === 'TWD') {
+            rateInput.value = 1;
+            return;
+        }
+
+        // 簡單的視覺回饋
+        rateInput.placeholder = "讀取中...";
+        
+        try {
+            const response = await fetch(API_URL + currency);
+            const data = await response.json();
+            rateInput.value = data.rates.TWD.toFixed(4);
+        } catch (e) {
+            alert("匯率抓取失敗，請手動輸入");
+        }
+    }
+
+    // 功能 2: 新增一筆消費
+    function addItem() {
+        // 取得輸入值
+        const date = document.getElementById('itemDate').value;
+        const category = document.getElementById('itemCategory').value || "未分類";
+        const name = document.getElementById('itemName').value || "雜項";
+        const currency = document.getElementById('itemCurrency').value;
+        const amount = Number(document.getElementById('itemAmount').value);
+        const rate = Number(document.getElementById('itemRate').value);
+
+        if (!date || amount <= 0 || rate <= 0) {
+            alert("請檢查日期、金額與匯率是否正確");
+            return;
+        }
+
+        // 建立物件並推入陣列
+        const item = {
+            id: Date.now(), // 用時間戳記當作唯一 ID
+            date,
+            category,
+            name,
+            currency,
+            amount,
+            rate,
+            totalTWD: amount * rate
+        };
+
+        expenses.push(item);
+        
+        // 清空輸入欄位方便下一筆輸入
+        document.getElementById('itemName').value = "";
+        document.getElementById('itemAmount').value = "";
+        
+        // 重新渲染畫面
+        renderTable();
+        calculateSummary();
+    }
+
+    // 功能 3: 刪除項目
+    function deleteItem(id) {
+        expenses = expenses.filter(item => item.id !== id);
+        renderTable();
+        calculateSummary();
+    }
+
+    // 功能 4: 渲染明細表格
+    function renderTable() {
+        const tbody = document.getElementById('expenseListBody');
+        tbody.innerHTML = ""; // 清空表格
+
+        // 依照日期排序
+        expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        expenses.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.date}</td>
+                <td><span style="background:#e2e6ea; padding:2px 6px; border-radius:4px; font-size:12px;">${item.category}</span></td>
+                <td>${item.name}</td>
+                <td>${item.amount.toLocaleString()} ${item.currency}</td>
+                <td>${item.rate}</td>
+                <td class="amount-col" style="color:#d9534f;">${Math.round(item.totalTWD).toLocaleString()}</td>
+                <td><button class="btn-del" onclick="deleteItem(${item.id})">刪除</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // 功能 5: 計算並渲染統計看板
+    function calculateSummary() {
+        // 5-1. 計算總金額
+        const total = expenses.reduce((sum, item) => sum + item.totalTWD, 0);
+        document.getElementById('grandTotal').innerText = Math.round(total).toLocaleString();
+
+        // 5-2. 計算天數與平均
+        const start = new Date(document.getElementById('startDate').value);
+        const end = new Date(document.getElementById('endDate').value);
+        
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+            const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+            document.getElementById('totalDays').innerText = days + " 天";
+            document.getElementById('dailyAvg').innerText = Math.round(total / days).toLocaleString();
+        } else {
+            document.getElementById('totalDays').innerText = "-";
+            document.getElementById('dailyAvg').innerText = "-";
+        }
+
+        // 5-3. 分類統計 (Group By Category)
+        const categoryMap = {};
+        expenses.forEach(item => {
+            if (!categoryMap[item.category]) categoryMap[item.category] = 0;
+            categoryMap[item.category] += item.totalTWD;
+        });
+
+        const catBody = document.getElementById('categorySummaryBody');
+        catBody.innerHTML = "";
+        
+        // 將物件轉為陣列並排序
+        Object.keys(categoryMap).forEach(cat => {
+            const subTotal = categoryMap[cat];
+            const percent = total > 0 ? (subTotal / total * 100).toFixed(1) : 0;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${cat}</td>
+                <td class="amount-col">${Math.round(subTotal).toLocaleString()}</td>
+                <td class="amount-col">${percent}%</td>
+            `;
+            catBody.appendChild(tr);
+        });
+    }
+</script>
+
+</body>
+</html>
